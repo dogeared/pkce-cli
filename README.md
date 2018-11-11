@@ -40,6 +40,7 @@ Options:
 ## Run
 
 ```
+npm install
 ./pkce-cli \
   --client_id 0oahdifc72URh7rUV0h7 \
   --okta_org https://micah.oktapreview.com \
