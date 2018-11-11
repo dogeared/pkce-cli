@@ -1,0 +1,115 @@
+#!/usr/bin/env node
+
+var crypto = require('crypto');
+var restify = require('restify');
+var request = require('request');
+var program = require('commander');
+var opn = require('opn');
+
+var codeVerifier;
+var tokenResponse;
+
+function uuid() {
+  function s4() {
+    return Math.floor((1 + Math.random()) * 0x10000)
+      .toString(16)
+      .substring(1);
+  }
+  return s4() + '_' + s4() + '_' + s4() + '_' + s4() + '_' + 
+    s4() + '_' + s4() + '_' + s4() + '_' + s4() + '_' + 
+    s4() + '_' + s4() + '_' + s4()
+}
+
+function base64url(str){
+    return str.replace(/\+/g, '-').replace(/\//g, '_').replace(/\=+$/, '');
+}
+
+function buildAuthorizeUrl(codeVerifier, codeChallenge) {
+	var authorizeUrl = program.okta_org + '/oauth2/v1/authorize?' +
+    'client_id=' + program.client_id + '&' +
+    'response_type=code&' +
+    'scope=' + program.scopes + '&' +
+    'redirect_uri=' + program.redirect_uri + '&' +
+    'state=' + uuid() + '&' +
+    'code_challenge_method=S256&' + 
+    'code_challenge=' + codeChallenge;
+  return authorizeUrl;
+}
+
+program
+  .option('-c, --client_id <okta client id>', 'OIDC Client ID', '')
+  .option('-o, --okta_org <okta org url>', 'ex: https://micah.oktapreview.com', '')
+  .option('-s, --scopes <space separated list of scopes>', 'Space separated list of scopes', '')
+  .option('-r, --redirect_uri <redirect uri>', 'redirect uri', '')
+  .parse(process.argv);
+  
+if (
+  !program.client_id || !program.okta_org || 
+  !program.scopes || !program.redirect_uri
+) {
+  program.help();
+  process.exit(1);
+}  
+  
+const server = restify.createServer({
+  name: 'myapp',
+  version: '1.0.0'
+});
+
+server.use(restify.plugins.acceptParser(server.acceptable));
+server.use(restify.plugins.queryParser());
+server.use(restify.plugins.bodyParser());
+
+server.get('/redirect', function (req, res, next) {
+  var form = {
+    grant_type: 'authorization_code',
+    redirect_uri: program.redirect_uri,
+    client_id: program.client_id,
+    code: req.query.code,
+    code_verifier: codeVerifier
+  };
+  console.log('Got code: ' + req.query.code);
+  console.log('Calling /token endpoint with form:');
+  console.log(form);
+  request.post(
+    {
+      url: program.okta_org + '/oauth2/v1/token',
+      form: form
+    },
+    function (err, httpResponse, body) {
+      tokenResponse = JSON.parse(body);
+      var body = '<html><head><script>window.onload = window.close()</script></head><body><h4>OAuth2 authorize complete. You can close this tab.</h4></body></html>';
+      res.writeHead(200, {
+          'Content-Length': Buffer.byteLength(body),
+          'Content-Type': 'text/html'
+      });
+      res.write(body);
+      res.end();
+      server.close();
+      return next();
+    }
+  );
+});
+
+server.listen(8080);
+  
+codeVerifier = uuid();
+console.log('Created Code Verifier: ' + codeVerifier);
+var codeChallenge = base64url(
+  crypto.createHash('sha256').update(codeVerifier).digest('base64')
+);
+console.log('Created Code Challenge: ' + codeChallenge);
+var authorizeUrl = buildAuthorizeUrl(codeVerifier, codeChallenge);
+console.log('Calling Authorize URL: ' + authorizeUrl);
+opn(authorizeUrl)
+server.on('close', function () {
+  console.log('Got token response:');
+  console.log(tokenResponse);
+  console.log('Calling /userinfo endpoint with access token');
+  request.get(program.okta_org + '/oauth2/v1/userinfo', {
+    auth: { bearer: tokenResponse.access_token }
+  }, function (err, httpResponse, body) {
+    console.log(JSON.parse(body));
+    process.exit(0);
+  })
+})
