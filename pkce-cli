@@ -68,9 +68,16 @@ server.get('/redirect', function (req, res, next) {
     code: req.query.code,
     code_verifier: codeVerifier
   };
-  console.log('Got code: ' + req.query.code);
-  console.log('Calling /token endpoint with form:');
+  console.log('Got code (α): ' + req.query.code + '\n');
+  
+  console.log('Calling /token endpoint with:');
+  console.log('client_id: ' + form.client_id);
+  console.log('code_verifier (v): ' + form.code_verifier);
+  console.log('code (α): ' + form.code + '\n');
+  
+  console.log('Here is the form post that will be sent to the /token endpoint:');
   console.log(form);
+  console.log('');
   request.post(
     {
       url: program.okta_org + '/oauth2/v1/token',
@@ -94,18 +101,19 @@ server.get('/redirect', function (req, res, next) {
 server.listen(8080);
   
 codeVerifier = uuid();
-console.log('Created Code Verifier: ' + codeVerifier);
+console.log('Created Code Verifier (v): ' + codeVerifier + '\n');
 var codeChallenge = base64url(
   crypto.createHash('sha256').update(codeVerifier).digest('base64')
 );
-console.log('Created Code Challenge: ' + codeChallenge);
+console.log('Created Code Challenge ($): ' + codeChallenge + '\n');
 var authorizeUrl = buildAuthorizeUrl(codeVerifier, codeChallenge);
-console.log('Calling Authorize URL: ' + authorizeUrl);
+console.log('Calling Authorize URL: ' + authorizeUrl + '\n');
 opn(authorizeUrl)
 server.on('close', function () {
   console.log('Got token response:');
   console.log(tokenResponse);
-  console.log('Calling /userinfo endpoint with access token');
+  console.log('');
+  console.log('Calling /userinfo endpoint with access token\n');
   request.get(program.okta_org + '/oauth2/v1/userinfo', {
     auth: { bearer: tokenResponse.access_token }
   }, function (err, httpResponse, body) {
