@@ -9,33 +9,6 @@ var opn = require('opn');
 var codeVerifier;
 var tokenResponse;
 
-function uuid() {
-  function s4() {
-    return Math.floor((1 + Math.random()) * 0x10000)
-      .toString(16)
-      .substring(1);
-  }
-  return s4() + '_' + s4() + '_' + s4() + '_' + s4() + '_' + 
-    s4() + '_' + s4() + '_' + s4() + '_' + s4() + '_' + 
-    s4() + '_' + s4() + '_' + s4()
-}
-
-function base64url(str){
-    return str.replace(/\+/g, '-').replace(/\//g, '_').replace(/\=+$/, '');
-}
-
-function buildAuthorizeUrl(codeVerifier, codeChallenge) {
-	var authorizeUrl = program.okta_org + '/oauth2/v1/authorize?' +
-    'client_id=' + program.client_id + '&' +
-    'response_type=code&' +
-    'scope=' + program.scopes + '&' +
-    'redirect_uri=' + program.redirect_uri + '&' +
-    'state=' + uuid() + '&' +
-    'code_challenge_method=S256&' + 
-    'code_challenge=' + codeChallenge;
-  return authorizeUrl;
-}
-
 program
   .option('-c, --client_id <okta client id>', 'OIDC Client ID', '')
   .option('-o, --okta_org <okta org url>', 'ex: https://micah.oktapreview.com', '')
@@ -121,3 +94,30 @@ server.on('close', function () {
     process.exit(0);
   })
 })
+
+function uuid() {
+  function s4() {
+    return Math.floor((1 + Math.random()) * 0x10000)
+      .toString(16)
+      .substring(1);
+  }
+  return s4() + '_' + s4() + '_' + s4() + '_' + s4() + '_' + 
+    s4() + '_' + s4() + '_' + s4() + '_' + s4() + '_' + 
+    s4() + '_' + s4() + '_' + s4()
+}
+
+function base64url(str){
+    return str.replace(/\+/g, '-').replace(/\//g, '_').replace(/\=+$/, '');
+}
+
+function buildAuthorizeUrl(codeVerifier, codeChallenge) {
+	var authorizeUrl = program.okta_org + '/oauth2/v1/authorize?' +
+    'client_id=' + program.client_id + '&' +
+    'response_type=code&' +
+    'scope=' + program.scopes + '&' +
+    'redirect_uri=' + program.redirect_uri + '&' +
+    'state=' + uuid() + '&' +
+    'code_challenge_method=S256&' + 
+    'code_challenge=' + codeChallenge;
+  return authorizeUrl;
+}
