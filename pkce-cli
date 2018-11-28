@@ -6,14 +6,15 @@ var request = require('request');
 var program = require('commander');
 var opn = require('opn');
 
-var codeVerifier;
 var tokenResponse;
+
+// Setup
 
 program
   .option('-c, --client_id <okta client id>', 'OIDC Client ID', '')
   .option('-o, --okta_org <okta org url>', 'ex: https://micah.oktapreview.com', '')
-  .option('-s, --scopes <space separated list of scopes>', 'Space separated list of scopes', '')
-  .option('-r, --redirect_uri <redirect uri>', 'redirect uri', '')
+  .option('-s, --scopes <space separated list of scopes>', 'Space separated list of scopes', 'openid profile email')
+  .option('-r, --redirect_uri <redirect uri>', 'redirect uri', 'http://localhost:8080/redirect')
   .parse(process.argv);
   
 if (
@@ -32,8 +33,29 @@ const server = restify.createServer({
 server.use(restify.plugins.acceptParser(server.acceptable));
 server.use(restify.plugins.queryParser());
 server.use(restify.plugins.bodyParser());
+server.listen(8080);
 
-server.get('/redirect', function (req, res, next) {
+server.get('/redirect', oktaRedirectHandler);
+server.on('close', serverCloseHandler);
+
+// execute auth code flow with pkce
+  
+var codeVerifier = uuid();
+console.log('Created Code Verifier (v): ' + codeVerifier + '\n');
+var codeChallenge = base64url(
+  crypto.createHash('sha256').update(codeVerifier).digest('base64')
+);
+console.log('Created Code Challenge ($): ' + codeChallenge + '\n');
+var authorizeUrl = buildAuthorizeUrl(codeVerifier, codeChallenge);
+console.log('Calling Authorize URL: ' + authorizeUrl + '\n');
+
+// Step 1: call authorize endpoint where user will authenticate to Okta
+opn(authorizeUrl)
+
+// Step 2: Okta redirects back to this app with an auth code
+function oktaRedirectHandler(req, res, next) {
+  console.log('Got code (α): ' + req.query.code + '\n');
+
   var form = {
     grant_type: 'authorization_code',
     redirect_uri: program.redirect_uri,
@@ -41,24 +63,28 @@ server.get('/redirect', function (req, res, next) {
     code: req.query.code,
     code_verifier: codeVerifier
   };
-  console.log('Got code (α): ' + req.query.code + '\n');
   
   console.log('Calling /token endpoint with:');
   console.log('client_id: ' + form.client_id);
   console.log('code_verifier (v): ' + form.code_verifier);
   console.log('code (α): ' + form.code + '\n');
   
-  console.log('Here is the form post that will be sent to the /token endpoint:');
+  console.log(
+    'Here is the complete form post that will be sent to the /token endpoint:'
+  );
   console.log(form);
-  console.log('');
+  console.log();
+  
+  // Step 3: call token endpoint where Okta will exchange code for tokens
   request.post(
-    {
-      url: program.okta_org + '/oauth2/v1/token',
-      form: form
+    { 
+      url: program.okta_org + '/oauth2/v1/token', 
+      form: form 
     },
     function (err, httpResponse, body) {
       tokenResponse = JSON.parse(body);
-      var body = '<html><head><script>window.onload = window.close()</script></head><body><h4>OAuth2 authorize complete. You can close this tab.</h4></body></html>';
+      var body = '<html><body><h4>OAuth2 authorize complete. ' + 
+        'You can close this tab.</h4></body></html>';
       res.writeHead(200, {
           'Content-Length': Buffer.byteLength(body),
           'Content-Type': 'text/html'
@@ -69,31 +95,24 @@ server.get('/redirect', function (req, res, next) {
       return next();
     }
   );
-});
+}
 
-server.listen(8080);
-  
-codeVerifier = uuid();
-console.log('Created Code Verifier (v): ' + codeVerifier + '\n');
-var codeChallenge = base64url(
-  crypto.createHash('sha256').update(codeVerifier).digest('base64')
-);
-console.log('Created Code Challenge ($): ' + codeChallenge + '\n');
-var authorizeUrl = buildAuthorizeUrl(codeVerifier, codeChallenge);
-console.log('Calling Authorize URL: ' + authorizeUrl + '\n');
-opn(authorizeUrl)
-server.on('close', function () {
+function serverCloseHandler() {
   console.log('Got token response:');
   console.log(tokenResponse);
-  console.log('');
+  console.log();
   console.log('Calling /userinfo endpoint with access token\n');
-  request.get(program.okta_org + '/oauth2/v1/userinfo', {
-    auth: { bearer: tokenResponse.access_token }
-  }, function (err, httpResponse, body) {
-    console.log(JSON.parse(body));
-    process.exit(0);
-  })
-})
+  
+  // Step 4: use the access_token to hit the /userinfo endpoint
+  request.get(
+    program.okta_org + '/oauth2/v1/userinfo', 
+    { auth: { bearer: tokenResponse.access_token } }, 
+    function (err, httpResponse, body) {
+      console.log(JSON.parse(body));
+      process.exit(0);
+    }
+  );
+}
 
 function uuid() {
   function s4() {
