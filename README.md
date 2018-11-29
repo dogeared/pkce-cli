@@ -95,3 +95,18 @@ Calling /userinfo endpoint with access token
   updated_at: 1541796005,
   email_verified: true }
 ```
+
+## Diagrams
+
+Here's an overview of the Authorization Code with PKCE flow:
+
+![pkce](pkce.png)
+
+Note: This image was generated using [mermaid](https://mermaidjs.github.io/). The source is [here](pkce.mmd)
+
+You can edit and regenrate the image using this command:
+
+```
+mmdc -i pkce.mmd -o pkce.png -b transparent -C mmdc.css
+mmdc -i pkce.mmd -o pkce.svg -C mmdc.css
+``` 

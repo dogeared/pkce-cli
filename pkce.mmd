@@ -1,0 +1,18 @@
+sequenceDiagram
+    participant RO as Resource Owner
+    participant CA as Client App (vue.js)
+    participant AS as Authorization Server
+    RO->>CA: 1. Access App
+    note right of CA: create random (v)<br/>$ = sha256(v) 
+    CA->>RO: 2. Redirect with $
+    RO->>AS: 3. Redirect to Login with $
+    note right of AS: store $
+    AS->>RO: 4. Returns Login Form
+    RO->>AS: 5. Submits Credentials
+    note right of AS: authenticate user
+    AS->>RO: 6. Redirect with code (α)
+    RO->>CA: 7. Redirect to App with code (α)
+    CA->>AS: 8. Request Token
+    note over CA,AS: request includes:<br/>Client ID, (v), (α)
+    note right of AS: validate:<br/>- Client ID<br/>- sha256(v) = $<br/>- (α)
+    AS->>CA: 9. Return Token

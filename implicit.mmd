@@ -1,0 +1,11 @@
+sequenceDiagram
+    participant RO as Resource Owner
+    participant CA as Client App (vue.js)
+    participant AS as Authorization Server
+    RO->>CA: 1. Access App
+    CA->>RO: 2. Redirect
+    RO->>AS: 3. Redirect to Login
+    AS->>RO: 4. Returns Login Form
+    RO->>AS: 5. Submits Credentials
+    AS->>RO: 6. Redirect with Token
+    RO->>CA: 7. Redirect to App with Token
