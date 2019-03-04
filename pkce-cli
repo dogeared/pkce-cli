@@ -6,8 +6,6 @@ var request = require('request');
 var program = require('commander');
 var opn = require('opn');
 
-var tokenResponse;
-
 // Setup
 
 program
@@ -36,7 +34,6 @@ server.use(restify.plugins.bodyParser());
 server.listen(8080);
 
 server.get('/redirect', oktaRedirectHandler);
-server.on('close', serverCloseHandler);
 
 // execute auth code flow with pkce
   
@@ -82,7 +79,7 @@ function oktaRedirectHandler(req, res, next) {
       form: form 
     },
     function (err, httpResponse, body) {
-      tokenResponse = JSON.parse(body);
+      var tokenResponse = JSON.parse(body);
       var body = '<html><body><h4>OAuth2 authorize complete. ' + 
         'You can close this tab.</h4></body></html>';
       res.writeHead(200, {
@@ -91,13 +88,13 @@ function oktaRedirectHandler(req, res, next) {
       });
       res.write(body);
       res.end();
-      server.close();
+      tokenResponseHandler(tokenResponse);
       return next();
     }
   );
 }
 
-function serverCloseHandler() {
+function tokenResponseHandler(tokenResponse) {
   console.log('Got token response:');
   console.log(tokenResponse);
   console.log();
