@@ -1,4 +1,4 @@
-## PKCE Command Line 
+## PKCE Command Line (SPA example coming soon)
 
 This tool demonstrates the Authorization Code Flow with PKCE 
 
