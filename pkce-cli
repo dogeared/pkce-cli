@@ -36,7 +36,6 @@ server.listen(8080);
 server.get('/redirect', oktaRedirectHandler);
 
 // execute auth code flow with pkce
-  
 var codeVerifier = uuid();
 console.log('Created Code Verifier (v): ' + codeVerifier + '\n');
 var codeChallenge = base64url(
@@ -44,14 +43,29 @@ var codeChallenge = base64url(
 );
 console.log('Created Code Challenge ($): ' + codeChallenge + '\n');
 var authorizeUrl = buildAuthorizeUrl(codeVerifier, codeChallenge);
-console.log('Calling Authorize URL: ' + authorizeUrl + '\n');
+console.log('About to call Authorize URL: ' + authorizeUrl + '\n');
 
-// Step 1: call authorize endpoint where user will authenticate to Okta
-opn(authorizeUrl)
+console.log('press any key to continue...');
+keypress().then(() => {
+  // Step 1: call authorize endpoint where user will authenticate to Okta
+  opn(authorizeUrl);
+});
 
 // Step 2: Okta redirects back to this app with an auth code
-function oktaRedirectHandler(req, res, next) {
-  console.log('Got code (α): ' + req.query.code + '\n');
+async function oktaRedirectHandler(req, res, next) {
+  var body = '<html><body><h4>OAuth2 authorize complete. ' + 
+    'You can close this tab.</h4></body></html>';
+  res.writeHead(200, {
+      'Content-Length': Buffer.byteLength(body),
+      'Content-Type': 'text/html'
+  });
+  res.write(body);
+  res.end();
+
+  console.log('\nGot code (α): ' + req.query.code + '\n');
+
+  console.log('press any key to continue...');
+  await keypress();
 
   var form = {
     grant_type: 'authorization_code',
@@ -61,7 +75,7 @@ function oktaRedirectHandler(req, res, next) {
     code_verifier: codeVerifier
   };
   
-  console.log('Calling /token endpoint with:');
+  console.log('\nCalling /token endpoint with:');
   console.log('client_id: ' + form.client_id);
   console.log('code_verifier (v): ' + form.code_verifier);
   console.log('code (α): ' + form.code + '\n');
@@ -71,6 +85,9 @@ function oktaRedirectHandler(req, res, next) {
   );
   console.log(form);
   console.log();
+
+  console.log('press any key to continue...');
+  await keypress();
   
   // Step 3: call token endpoint where Okta will exchange code for tokens
   request.post(
@@ -80,25 +97,21 @@ function oktaRedirectHandler(req, res, next) {
     },
     function (err, httpResponse, body) {
       var tokenResponse = JSON.parse(body);
-      var body = '<html><body><h4>OAuth2 authorize complete. ' + 
-        'You can close this tab.</h4></body></html>';
-      res.writeHead(200, {
-          'Content-Length': Buffer.byteLength(body),
-          'Content-Type': 'text/html'
-      });
-      res.write(body);
-      res.end();
       tokenResponseHandler(tokenResponse);
       return next();
     }
   );
 }
 
-function tokenResponseHandler(tokenResponse) {
-  console.log('Got token response:');
+async function tokenResponseHandler(tokenResponse) {
+  console.log('\nGot token response:');
   console.log(tokenResponse);
   console.log();
-  console.log('Calling /userinfo endpoint with access token\n');
+
+  console.log('press any key to continue...');
+  await keypress();  
+
+  console.log('\nCalling /userinfo endpoint with access token\n');
   
   // Step 4: use the access_token to hit the /userinfo endpoint
   request.get(
@@ -136,4 +149,12 @@ function buildAuthorizeUrl(codeVerifier, codeChallenge) {
     'code_challenge_method=S256&' + 
     'code_challenge=' + codeChallenge;
   return authorizeUrl;
+}
+
+async function keypress() {
+  process.stdin.setRawMode(true)
+  return new Promise(resolve => process.stdin.once('data', () => {
+    process.stdin.setRawMode(false)
+    resolve()
+  }))
 }
