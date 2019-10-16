@@ -12,7 +12,7 @@ program
   .option('-c, --client_id <okta client id>', 'OIDC Client ID', '')
   .option('-o, --okta_org <okta org url>', 'ex: https://micah.oktapreview.com', '')
   .option('-s, --scopes <space separated list of scopes>', 'Space separated list of scopes', 'openid profile email')
-  .option('-r, --redirect_uri <redirect uri>', 'redirect uri', 'http://localhost:8080/redirect')
+  .option('-r, --redirect_uri <redirect uri>', 'redirect uri', '/authorization-code/callback')
   .parse(process.argv);
   
 if (
@@ -33,7 +33,7 @@ server.use(restify.plugins.queryParser());
 server.use(restify.plugins.bodyParser());
 server.listen(8080);
 
-server.get('/redirect', oktaRedirectHandler);
+server.get(program.redirect_uri, oktaRedirectHandler);
 
 // execute auth code flow with pkce
 var codeVerifier = uuid();
@@ -69,7 +69,7 @@ async function oktaRedirectHandler(req, res, next) {
 
   var form = {
     grant_type: 'authorization_code',
-    redirect_uri: program.redirect_uri,
+    redirect_uri: 'http://localhost:8080' + program.redirect_uri,
     client_id: program.client_id,
     code: req.query.code,
     code_verifier: codeVerifier
@@ -144,7 +144,7 @@ function buildAuthorizeUrl(codeVerifier, codeChallenge) {
     'client_id=' + program.client_id + '&' +
     'response_type=code&' +
     'scope=' + program.scopes + '&' +
-    'redirect_uri=' + program.redirect_uri + '&' +
+    'redirect_uri=http://localhost:8080' + program.redirect_uri + '&' +
     'state=' + uuid() + '&' +
     'code_challenge_method=S256&' + 
     'code_challenge=' + codeChallenge;
