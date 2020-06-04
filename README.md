@@ -45,7 +45,7 @@ npm install
   --client_id 0oahdifc72URh7rUV0h7 \
   --okta_org https://micah.oktapreview.com \
   --scopes "openid profile email" \
-  --redirect_uri http://localhost:8080/redirect 
+  --redirect_uri /redirect
 ```
 
 You'll get output like this:
