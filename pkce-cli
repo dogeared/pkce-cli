@@ -4,7 +4,7 @@ var crypto = require('crypto');
 var restify = require('restify');
 var request = require('request');
 var program = require('commander');
-var opn = require('opn');
+const open = require('better-opn');
 
 // Setup
 
@@ -13,6 +13,7 @@ program
   .option('-o, --okta_org <okta org url>', 'ex: https://micah.oktapreview.com', '')
   .option('-s, --scopes <space separated list of scopes>', 'Space separated list of scopes', 'openid profile email')
   .option('-r, --redirect_uri <redirect uri>', 'redirect uri', '/authorization-code/callback')
+  .option('-a, --authorization_server <authorization server>', 'authorization server', 'default')
   .parse(process.argv);
   
 if (
@@ -31,7 +32,7 @@ const server = restify.createServer({
 server.use(restify.plugins.acceptParser(server.acceptable));
 server.use(restify.plugins.queryParser());
 server.use(restify.plugins.bodyParser());
-server.listen(8080);
+server.listen(process.env.PORT || 8080);
 
 server.get(program.redirect_uri, oktaRedirectHandler);
 
@@ -48,7 +49,7 @@ console.log('About to call Authorize URL: ' + authorizeUrl + '\n');
 console.log('press any key to continue...');
 keypress().then(() => {
   // Step 1: call authorize endpoint where user will authenticate to Okta
-  opn(authorizeUrl);
+  open(authorizeUrl);
 });
 
 // Step 2: Okta redirects back to this app with an auth code
@@ -69,7 +70,7 @@ async function oktaRedirectHandler(req, res, next) {
 
   var form = {
     grant_type: 'authorization_code',
-    redirect_uri: 'http://localhost:8080' + program.redirect_uri,
+    redirect_uri: 'http://localhost:' + (process.env.PORT || 8080) + program.redirect_uri,
     client_id: program.client_id,
     code: req.query.code,
     code_verifier: codeVerifier
@@ -92,7 +93,7 @@ async function oktaRedirectHandler(req, res, next) {
   // Step 3: call token endpoint where Okta will exchange code for tokens
   request.post(
     { 
-      url: program.okta_org + '/oauth2/v1/token', 
+      url: `${program.okta_org}/oauth2/${program.authorization_server}/v1/token`,
       form: form 
     },
     function (err, httpResponse, body) {
@@ -115,7 +116,7 @@ async function tokenResponseHandler(tokenResponse) {
   
   // Step 4: use the access_token to hit the /userinfo endpoint
   request.get(
-    program.okta_org + '/oauth2/v1/userinfo', 
+    `${program.okta_org}/oauth2/${program.authorization_server}/v1/userinfo`, 
     { auth: { bearer: tokenResponse.access_token } }, 
     function (err, httpResponse, body) {
       console.log(JSON.parse(body));
@@ -140,11 +141,12 @@ function base64url(str){
 }
 
 function buildAuthorizeUrl(codeVerifier, codeChallenge) {
-	var authorizeUrl = program.okta_org + '/oauth2/v1/authorize?' +
+	var authorizeUrl = program.okta_org + '/oauth2/' + 
+    program.authorization_server + '/v1/authorize?' +
     'client_id=' + program.client_id + '&' +
     'response_type=code&' +
     'scope=' + program.scopes + '&' +
-    'redirect_uri=http://localhost:8080' + program.redirect_uri + '&' +
+    'redirect_uri=http://localhost:' + (process.env.PORT || 8080) + program.redirect_uri + '&' +
     'state=' + uuid() + '&' +
     'code_challenge_method=S256&' + 
     'code_challenge=' + codeChallenge;
