@@ -3,18 +3,19 @@
 var crypto = require('crypto');
 var restify = require('restify');
 var request = require('request');
-var program = require('commander');
-const open = require('better-opn');
+var commander = require('commander');
 
 // Setup
-
-program
+commander
   .option('-c, --client_id <okta client id>', 'OIDC Client ID', '')
   .option('-o, --okta_org <okta org url>', 'ex: https://micah.oktapreview.com', '')
   .option('-s, --scopes <space separated list of scopes>', 'Space separated list of scopes', 'openid profile email')
   .option('-r, --redirect_uri <redirect uri>', 'redirect uri', '/authorization-code/callback')
   .option('-a, --authorization_server <authorization server>', 'authorization server', 'default')
   .parse(process.argv);
+
+var program = commander.opts();
+
   
 if (
   !program.client_id || !program.okta_org || 
@@ -44,13 +45,10 @@ var codeChallenge = base64url(
 );
 console.log('Created Code Challenge ($): ' + codeChallenge + '\n');
 var authorizeUrl = buildAuthorizeUrl(codeVerifier, codeChallenge);
-console.log('About to call Authorize URL: ' + authorizeUrl + '\n');
+console.log('Copy & Paste Authorize URL: ' + authorizeUrl + '\n');
 
 console.log('press any key to continue...');
-keypress().then(() => {
-  // Step 1: call authorize endpoint where user will authenticate to Okta
-  open(authorizeUrl);
-});
+keypress()
 
 // Step 2: Okta redirects back to this app with an auth code
 async function oktaRedirectHandler(req, res, next) {
